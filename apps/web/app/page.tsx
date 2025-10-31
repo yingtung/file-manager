@@ -1,6 +1,7 @@
 import Image, { type ImageProps } from "next/image";
 import { Button } from "@repo/ui/button";
 import styles from "./page.module.css";
+import React from "react";
 
 type Props = Omit<ImageProps, "src"> & {
   srcLight: string;
@@ -62,6 +63,8 @@ export default function Home() {
           >
             Read our docs
           </a>
+          <a href="/signup" className={styles.secondary}>Sign up</a>
+          <a href="/login" className={styles.secondary}>Log in</a>
         </div>
         <Button appName="web" className={styles.secondary}>
           Open alert
