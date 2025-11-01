@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client'; 
 import { Button } from '@/components/ui/button';
-import { requireAccessToken } from '@/utils/auth'; 
+import { requireAccessToken } from '@/utils/auth';
+import { UploadProgress } from '@/components/UploadProgress'; 
 
 const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_BUCKET_NAME || '';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -16,7 +17,8 @@ export function FileUploader({ onFileUploaded }: FileUploaderProps) {
   const supabase = createClient()
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<'uploading' | 'saving' | 'complete' | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -32,6 +34,8 @@ export function FileUploader({ onFileUploaded }: FileUploaderProps) {
     }
 
     setIsUploading(true);
+    setUploadProgress(10);
+    setUploadStage('uploading');
     const fileExtension = file.name.split('.').pop();
     const filePath = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
 
@@ -47,6 +51,9 @@ export function FileUploader({ onFileUploaded }: FileUploaderProps) {
       if (uploadError) {
         throw new Error(`上傳至 Supabase 失敗: ${uploadError.message}`);
       }
+
+      setUploadProgress(50);
+      setUploadStage('saving');
 
       // 取得公開下載 URL
       const { data: publicUrlData } = supabase.storage
@@ -81,12 +88,22 @@ export function FileUploader({ onFileUploaded }: FileUploaderProps) {
         throw new Error(errorDetail.detail || `FastAPI 處理失敗 (狀態碼: ${fastapiResponse.status})`);
       }
 
-      alert('檔案上傳並元資料寫入成功！');
+      setUploadProgress(100);
+      setUploadStage('complete');
+
       setFile(null); // 清空欄位
       
       // Trigger callback to refresh file list
       onFileUploaded?.();
+      
+      // Reset progress after a short delay
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadStage(null);
+      }, 1000);
     } catch (error: any) {
+        setUploadProgress(0);
+        setUploadStage(null);
         throw new Error(error.message);
     } finally {
       setIsUploading(false);
@@ -94,19 +111,38 @@ export function FileUploader({ onFileUploaded }: FileUploaderProps) {
   };
 
   return (
-    <div className="p-6 border rounded-lg shadow-lg max-w-md mx-auto">
-      <h2 className="text-xl font-bold mb-4">檔案上傳</h2>
-      <input
-        type="file"
-        onChange={handleFileChange}
-        className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 mb-4"
-      />
+    <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200 max-w-md mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-gray-900">檔案上傳</h2>
+      
+      <div className="mb-4">
+        <input
+          type="file"
+          onChange={handleFileChange}
+          disabled={isUploading}
+          className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </div>
+      
       <Button 
         onClick={handleUpload} 
         disabled={!file || isUploading}
+        className="w-full"
       >
-        {isUploading ? '上傳中...' : '確認上傳'}
+        {isUploading ? (
+          <span className="flex items-center justify-center gap-2">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            {uploadStage === 'uploading' && '上傳中...'}
+            {uploadStage === 'saving' && '儲存中...'}
+            {uploadStage === 'complete' && '完成！'}
+          </span>
+        ) : (
+          '確認上傳'
+        )}
       </Button>
+      
+      {uploadProgress>0 && (
+        <UploadProgress progress={uploadProgress} stage={uploadStage} />
+      )}
     </div>
   );
 }
