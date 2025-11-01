@@ -4,13 +4,14 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select, func, delete
 
 from database import get_session
 from dependencies import get_pagination_params, get_current_user_id
 from models import (
     DownloadLink,
     File,
+    FileBulkDelete,
     FileCreate,
     FileRead,
     FileUpdate,
@@ -18,7 +19,7 @@ from models import (
     SortField,
     SortDirection,
 )
-from services.supabase import generate_signed_url, get_supabase
+from services.supabase import delete_storage_files, generate_signed_url, get_supabase
 from supabase import Client
 
 router = APIRouter(prefix="/file", tags=["file"])
@@ -138,15 +139,45 @@ def update_file(
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_file(file_id: UUID, session: Session = Depends(get_session)) -> None:
-    """Delete a file record."""
+    """Delete a file from Supabase Storage and database record."""
     file = session.get(File, file_id)
     if not file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"File with id {file_id} not found",
         )
+    delete_storage_files([file.storage_path])
 
     session.delete(file)
+    session.commit()
+    return None
+
+
+@router.post("/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_files(
+    request_body: FileBulkDelete, session: Session = Depends(get_session)
+) -> None:
+    """Delete a file from Supabase Storage and database record."""
+    # Convert string IDs to UUIDs
+    try:
+        file_ids = [UUID(id_str) for id_str in request_body.file_ids]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid UUID format: {str(e)}",
+        )
+
+    files = session.exec(select(File).where(File.id.in_(file_ids))).all()
+    delete_ids = [file.id for file in files]
+    if not delete_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No files found with the provided IDs",
+        )
+    delete_storage_files([file.storage_path for file in files])
+
+    delete_statement = delete(File).where(File.id.in_(delete_ids))
+    session.exec(delete_statement)
     session.commit()
     return None
 

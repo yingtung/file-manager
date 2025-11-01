@@ -104,3 +104,12 @@ def generate_signed_url(file_path: str, expires_in: int = 3600) -> str:
     except Exception as e:
         raise Exception(f"Failed to generate signed URL: {str(e)}")
     return signed_url
+
+
+def delete_storage_files(file_paths: list[str]) -> None:
+    """Delete a file from Supabase Storage."""
+    client = supabase_service.get_client()
+    try:
+        client.storage.from_(settings.SUPABASE_BUCKET_NAME).remove(file_paths)
+    except Exception as e:
+        raise Exception(f"Failed to delete file: {str(e)}")

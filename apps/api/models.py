@@ -62,6 +62,12 @@ class FileUpdate(SQLModel):
     name: Optional[str] = None
 
 
+class FileBulkDelete(SQLModel):
+    """Schema for bulk deleting files."""
+
+    file_ids: List[str] = Field(description="IDs of the files to delete")
+
+
 class SortField(str, Enum):
     """Valid sort fields for files."""
 

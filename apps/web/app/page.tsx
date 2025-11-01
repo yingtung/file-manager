@@ -132,12 +132,35 @@ export default function Home() {
       throw new Error(err.message);
     }
   };
+
+  const handleFileDeleteSelected = async (selectedIds: string[]) => {
+    try {
+      const accessToken = await requireAccessToken();
+      const response = await fetch(`${API_URL}/api/file/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ file_ids: selectedIds }),
+      });
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || `刪除失敗 (狀態碼: ${response.status})`);
+      }
+
+      // Refresh file list after delete
+      fetchFiles();
+    } catch (err: any) {
+      throw new Error(err.message);
+    }}
   
   return (
     <>
       <Navbar />
       <div className="p-6 max-w-7xl mx-auto">
         <FileUploader onFileUploaded={handleFileUploaded} />
+
         <FileTable 
         files={files}
         loading={loading}
@@ -155,6 +178,7 @@ export default function Home() {
         }}
         onFileUpdate={handleFileUpdate}
         onFileDelete={handleFileDelete}
+        onFileDeleteSelected={handleFileDeleteSelected}
         />
       </div>
     </>

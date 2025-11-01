@@ -5,6 +5,7 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  RowSelectionState,
   useReactTable,
 } from '@tanstack/react-table';
 import {
@@ -16,10 +17,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File, Edit, Trash2, ArrowUpDown, Download } from 'lucide-react';
 import { EditInput } from '@/components/EditInput';
 import { createClient } from '@/utils/supabase/client';
 import { requireAccessToken } from '@/utils/auth';
+import { formatDate } from '@/utils/formatDate';
 
 interface File {
   id: string;
@@ -46,6 +49,7 @@ interface FileTableProps {
   onSortChange: (field: SortField, direction: SortDirection) => void;
   onFileUpdate?: (fileId: string, newName: string) => Promise<void>;
   onFileDelete?: (fileId: string) => Promise<void>;
+  onFileDeleteSelected?: (selectedIds: string[]) => Promise<void>;
 }
 
 export function FileTable({
@@ -61,8 +65,10 @@ export function FileTable({
   onSortChange,
   onFileUpdate,
   onFileDelete,
+  onFileDeleteSelected,
 }: FileTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const supabase = createClient();
   const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_BUCKET_NAME || '';
 
@@ -103,6 +109,32 @@ export function FileTable({
       alert('刪除失敗，請稍後再試');
     }
   };
+  const handleDeleteSelected = async () => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const selectedIds = selectedRows.map((row) => row.original.id);
+    
+    if (selectedIds.length === 0) {
+      alert('請至少選擇一個檔案來刪除');
+      return;
+    }
+  
+    if (!confirm(`確定要刪除 ${selectedIds.length} 個檔案嗎？`)) {
+      return;
+    }
+    
+    try {
+    if (onFileDeleteSelected) {
+      await onFileDeleteSelected(selectedIds);
+    }
+      
+      setRowSelection({});
+      
+      
+    } catch (error: any) {
+      console.error('Batch delete failed:', error);
+      alert(`刪除失敗: ${error.message}`);
+    }
+  };
 
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
@@ -139,15 +171,7 @@ export function FileTable({
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString('zh-TW', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+
 
   const getFileIcon = (mimeType: string | null) => {
     if (!mimeType) return <File className="w-16 h-16" />;
@@ -186,6 +210,28 @@ export function FileTable({
 
   // Define columns using TanStack Table
   const columns = useMemo<ColumnDef<File>[]>(() => [
+    {
+        id: "select", // 必須使用 'select' 作為 ID
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
     {
       accessorKey: 'thumbnail',
       header: '預覽',
@@ -390,6 +436,11 @@ export function FileTable({
     data: files,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    onRowSelectionChange: setRowSelection,
+    state: {
+      rowSelection,
+    },
+    enableRowSelection: true,
     
   });
 
@@ -402,18 +453,20 @@ export function FileTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            <TableHead className="w-[5%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[8%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[25%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
             <TableHead className="w-[10%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[30%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[10%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[10%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
             <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[9%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[10%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {Array.from({ length: pageSize }).map((_, index) => (
             <TableRow key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+              <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-4"></div></TableCell>
               <TableCell><div className="w-12 h-12 bg-gray-200 rounded animate-pulse"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div></TableCell>
@@ -441,12 +494,23 @@ export function FileTable({
     );
   }
 
+  const selectedCount = table.getFilteredSelectedRowModel().rows.length;
+
   return (
     <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">檔案列表</h2>
-        <div className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-          共 {total} 個檔案
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-gray-900">檔案列表</h2>
+          {selectedCount > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteSelected}
+              className="h-8"
+            >
+              刪除已選 {selectedCount} 個
+            </Button>
+          )}
         </div>
       </div>
       
@@ -460,10 +524,12 @@ export function FileTable({
                 <TableRow key={headerGroup.id} className="bg-gray-50">
                   {headerGroup.headers.map((header) => (
                     <TableHead key={header.id} className={
-                      header.column.id === 'thumbnail' ? 'w-[10%]' :
-                      header.column.id === 'name' ? 'w-[30%]' :
-                      header.column.id === 'size' || header.column.id === 'created_at' || header.column.id === 'mime_type' ? 'w-[12%]' :
-                      'w-[15%]'
+                      header.column.id === 'select' ? 'w-[5%]' :
+                      header.column.id === 'thumbnail' ? 'w-[8%]' :
+                      header.column.id === 'name' ? 'w-[25%]' :
+                      header.column.id === 'size' || header.column.id === 'created_at' || header.column.id === 'mime_type' ? 'w-[10%]' :
+                      header.column.id === 'actions' ? 'w-[10%]' :
+                      'w-[12%]'
                     }>
                       {header.isPlaceholder
                         ? null

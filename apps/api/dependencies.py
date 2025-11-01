@@ -1,7 +1,7 @@
 from typing import Tuple
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Header, Query, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from services.supabase import supabase_service
@@ -27,7 +27,7 @@ def get_pagination_params(
 security = HTTPBearer()
 
 
-def get_current_user_id(
+def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> UUID:
     """
@@ -57,8 +57,8 @@ def get_current_user_id(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Return the user ID as UUID
-        return UUID(response.user.id)
+        # Return the user
+        return response.user
 
     except ValueError:
         # Invalid UUID format
@@ -74,3 +74,7 @@ def get_current_user_id(
             detail=f"Authentication failed: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def get_current_user_id(user=Depends(get_current_user)):
+    return UUID(user.id)
