@@ -16,9 +16,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File, Edit, Trash2, ArrowUpDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File, Edit, Trash2, ArrowUpDown, Download } from 'lucide-react';
 import { EditInput } from '@/components/EditInput';
 import { createClient } from '@/utils/supabase/client';
+import { requireAccessToken } from '@/utils/auth';
 
 interface File {
   id: string;
@@ -100,6 +101,33 @@ export function FileTable({
     } catch (error) {
       console.error('Failed to delete file:', error);
       alert('刪除失敗，請稍後再試');
+    }
+  };
+
+  const handleDownload = async (fileId: string, fileName: string) => {
+    try {
+      const accessToken = await requireAccessToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      
+      const response = await fetch(`${API_URL}/api/file/${fileId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || `下載失敗 (狀態碼: ${response.status})`);
+      }
+
+      const data = await response.json();
+      const signedUrl = data.signed_url;
+      
+      // Open the signed URL in a new tab to trigger download
+      window.open(signedUrl, '_blank');
+    } catch (error: any) {
+      console.error('Failed to download file:', error);
+      alert(`下載失敗: ${error.message}`);
     }
   };
 
@@ -327,7 +355,7 @@ export function FileTable({
               size="sm"
               onClick={() => setEditingId(file.id)}
               disabled={editingId !== null}
-              className="h-8 w-8 p-0 hover:bg-blue-50"
+              className="h-8 w-8 p-0 hover:bg-blue-50 cursor-pointer"
               title="編輯"
             >
               <Edit className="w-4 h-4 text-blue-600" />
@@ -335,9 +363,19 @@ export function FileTable({
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => handleDownload(file.id, file.name)}
+              disabled={editingId !== null}
+              className="h-8 w-8 p-0 hover:bg-green-50 cursor-pointer"
+              title="下載"
+            >
+              <Download className="w-4 h-4 text-green-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleDelete(file.id)}
               disabled={editingId !== null}
-              className="h-8 w-8 p-0 hover:bg-red-50"
+              className="h-8 w-8 p-0 hover:bg-red-50 cursor-pointer"
               title="刪除"
             >
               <Trash2 className="w-4 h-4 text-red-600" />
@@ -346,7 +384,7 @@ export function FileTable({
         );
       },
     },
-  ], [editingId, sortField, sortDirection, onSortChange, onFileUpdate]);
+  ], [editingId, sortField, sortDirection, onSortChange, onFileUpdate, onFileDelete]);
 
   const table = useReactTable({
     data: files,
