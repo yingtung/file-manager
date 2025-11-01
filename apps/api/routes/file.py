@@ -70,6 +70,8 @@ def read_files(
                 order_field = File.created_at
             elif field == SortField.NAME:
                 order_field = File.name
+            elif field == SortField.SIZE:
+                order_field = File.size
             else:
                 order_field = File.created_at  # Default fallback
 

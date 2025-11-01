@@ -1,21 +1,108 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
-import React from "react";
+'use client';
+
+import { useState, useEffect } from "react";
+import { requireAccessToken } from "@/utils/auth";
 import { FileUploader } from "@/components/FileUploader";
+import { FileTable } from "@/components/FileTable";
 
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+interface File {
+  id: string;
+  name: string;
+  size: number | null;
+  mime_type: string | null;
+  created_at: string;
+  storage_path: string | null;
+}
+
+interface FileListResponse {
+  data: File[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+type SortField = 'name' | 'created_at' | 'size';
+type SortDirection = 'asc' | 'desc';
 
 export default function Home() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortField[]>(['created_at']);
+  const [sortOrder, setSortOrder] = useState<SortDirection[]>(['desc']);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  
+  const fetchFiles = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const accessToken = await requireAccessToken();
+      
+      // Build query string for multiple sort fields
+      const params = new URLSearchParams();
+      sortBy.forEach(field => params.append('sort_by', field));
+      sortOrder.forEach(order => params.append('sort_order', order));
+      params.append('page', currentPage.toString());
+      params.append('page_size', pageSize.toString());
+      
+      const response = await fetch(
+        `${API_URL}/api/file?${params.toString()}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || `載入失敗 (狀態碼: ${response.status})`);
+      }
+      
+      const data: FileListResponse = await response.json();
+      setFiles(data.data);
+      setTotal(data.total);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder, currentPage]);
+  
+  const handleFileUploaded = () => {
+    // Refresh file list after upload
+    fetchFiles();
+  };
+  
   return (
-    <div className={styles.page}>
-      <FileUploader/>
-      <main className={styles.main}>
-      </main>
+    <div className="p-6 max-w-7xl mx-auto">
+      <FileUploader onFileUploaded={handleFileUploaded} />
+      <FileTable 
+        files={files}
+        loading={loading}
+        error={error}
+        total={total}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        sortField={sortBy[0] || 'created_at'}
+        sortDirection={sortOrder[0] || 'desc'}
+        onPageChange={setCurrentPage}
+        onSortChange={(field: SortField, direction: SortDirection) => {
+          setSortBy([field]);
+          setSortOrder([direction]);
+          setCurrentPage(1);
+        }}
+      />
     </div>
   );
 }

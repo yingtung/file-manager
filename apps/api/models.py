@@ -67,6 +67,7 @@ class SortField(str, Enum):
 
     CREATED_AT = "created_at"
     NAME = "name"
+    SIZE = "size"
 
 
 class SortDirection(str, Enum):

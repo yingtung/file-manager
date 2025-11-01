@@ -1,14 +1,18 @@
-// apps/web/components/FileUploader.tsx
 'use client';
 
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client'; 
-import { Button } from '@/components/ui/button'; 
+import { Button } from '@/components/ui/button';
+import { requireAccessToken } from '@/utils/auth'; 
 
 const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_BUCKET_NAME || '';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export function FileUploader() {
+interface FileUploaderProps {
+  onFileUploaded?: () => void;
+}
+
+export function FileUploader({ onFileUploaded }: FileUploaderProps) {
   const supabase = createClient()
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -52,16 +56,8 @@ export function FileUploader() {
       const publicUrl = publicUrlData.publicUrl;
 
       // 🚀 步驟 2: 呼叫 FastAPI 後端寫入元資料
-      // 注意：這裡假設用戶已透過 Supabase 登入，且 JWT 令牌已附加在請求中。
-      // 在實際應用中，您可能需要一個專門的函式來獲取 JWT 並放入 Header。
-      
-      // 假設我們需要用戶的 access token (從 Supabase session 取得)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      if (!accessToken) {
-        throw new Error('未登入或 Session 已過期，請重新登入。');
-      }
+      // Middleware 已驗證用戶身份，這裡直接使用 requireAccessToken 獲取 token
+      const accessToken = await requireAccessToken();
 
       const fastapiResponse = await fetch(`${API_URL}/api/file`, {
         method: 'POST',
@@ -87,6 +83,9 @@ export function FileUploader() {
 
       alert('檔案上傳並元資料寫入成功！');
       setFile(null); // 清空欄位
+      
+      // Trigger callback to refresh file list
+      onFileUploaded?.();
     } catch (error: any) {
         throw new Error(error.message);
     } finally {
