@@ -181,7 +181,7 @@ export function FileTable({
 
   const getThumbnailUrl = async (storagePath: string | null): Promise<string | null> => {
     if (!storagePath) return null;
-    const { data,error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath,60*24*30,{transform:{width:300,height:300}});
+    const { data,error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath,60*24*30,{transform:{width:100,height:100}});
     return data?.signedUrl|| null;
   };
 
