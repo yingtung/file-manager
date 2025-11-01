@@ -34,7 +34,7 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState<SortDirection[]>(['desc']);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 5 ;
   
   const fetchFiles = async () => {
     setLoading(true);

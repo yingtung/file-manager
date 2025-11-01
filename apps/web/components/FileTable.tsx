@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File, Edit, Trash2, ArrowUpDown } from 'lucide-react';
 import { EditInput } from '@/components/EditInput';
+import { createClient } from '@/utils/supabase/client';
 
 interface File {
   id: string;
@@ -61,6 +62,8 @@ export function FileTable({
   onFileDelete,
 }: FileTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const supabase = createClient();
+  const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_BUCKET_NAME || '';
 
   const handleStartEdit = (file: File) => {
     setEditingId(file.id);
@@ -119,22 +122,84 @@ export function FileTable({
   };
 
   const getFileIcon = (mimeType: string | null) => {
-    if (!mimeType) return <File className="w-4 h-4" />;
+    if (!mimeType) return <File className="w-16 h-16" />;
     if (mimeType.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-blue-500" />;
-    return <FileText className="w-4 h-4 text-gray-500" />;
+    return <FileText className="w-16 h-16 text-gray-500" />;
   };
 
-  const getFileTypeBadge = (mimeType: string | null): string => {
-    if (!mimeType) return 'UNKNOWN';
-    const parts = mimeType.split('/');
-    if (parts.length > 1 && parts[1]) {
-      return parts[1].toUpperCase();
+  const getThumbnailUrl = async (storagePath: string | null): Promise<string | null> => {
+    if (!storagePath) return null;
+    const { data,error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath,60*24*30,{transform:{width:300,height:300}});
+    return data?.signedUrl|| null;
+  };
+
+  const ThumbnailCell = ({ thumbnailUrl, fileName, mimeType }: { thumbnailUrl: string; fileName: string; mimeType: string | null }) => {
+    const [hasError, setHasError] = useState(false);
+    
+    if (hasError) {
+      return (
+        <div className="w-20 h-20 flex items-center justify-center bg-gray-50 rounded">
+          {getFileIcon(mimeType)}
+        </div>
+      );
     }
-    return parts[0] ? parts[0].toUpperCase() : 'UNKNOWN';
+    
+    return (
+      <div className="w-20 h-20 flex items-center justify-center bg-gray-50 rounded overflow-hidden">
+        <img 
+          src={thumbnailUrl} 
+          alt={fileName}
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      </div>
+    );
   };
 
   // Define columns using TanStack Table
   const columns = useMemo<ColumnDef<File>[]>(() => [
+    {
+      accessorKey: 'thumbnail',
+      header: '預覽',
+      cell: ({ row }) => {
+        const file = row.original;
+        const isImage = file.mime_type?.startsWith('image/');
+        const thumbnailUrl = isImage ? getThumbnailUrl(file.storage_path) : null;
+        
+        if (!thumbnailUrl) {
+          return (
+            <div className="w-20 h-20 flex items-center justify-center bg-gray-50 rounded">
+              {getFileIcon(file.mime_type)}
+            </div>
+          );
+        }
+        const [url, setUrl] = useState<string | null>(null);
+
+        useEffect(() => {
+          let isUnmounted = false;
+          if (thumbnailUrl instanceof Promise) {
+            thumbnailUrl.then((u) => {
+              if (!isUnmounted) setUrl(u);
+            });
+          } else {
+            setUrl(thumbnailUrl);
+          }
+          return () => { isUnmounted = true; };
+        }, [thumbnailUrl]);
+
+        if (!url) {
+          return (
+            <div className="w-20 h-20 flex items-center justify-center bg-gray-50 rounded">
+              {getFileIcon(file.mime_type)}
+            </div>
+          );
+        }
+
+        return (
+          <ThumbnailCell thumbnailUrl={url} fileName={file.name} mimeType={file.mime_type} />
+        );
+      },
+    },
     {
       accessorKey: 'name',
       header: () => {
@@ -162,8 +227,7 @@ export function FileTable({
       cell: ({ row }) => {
         const file = row.original;
         return (
-          <div className="flex items-center gap-3">
-            {getFileIcon(file.mime_type)}
+          <div className="flex items-center">
             {editingId === file.id ? (
               <EditInput
                 value={file.name}
@@ -245,7 +309,7 @@ export function FileTable({
       cell: ({ row }) => {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            {getFileTypeBadge(row.original.mime_type)}
+            {row.original.mime_type}
           </span>
         );
       },
@@ -300,20 +364,24 @@ export function FileTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
-            <TableHead className="w-[35%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[10%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[30%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[12%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
             <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[20%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[9%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {Array.from({ length: pageSize }).map((_, index) => (
             <TableRow key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+              <TableCell><div className="w-12 h-12 bg-gray-200 rounded animate-pulse"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div></TableCell>
+              <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div></TableCell>
             </TableRow>
           ))}
@@ -353,7 +421,12 @@ export function FileTable({
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="bg-gray-50">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className={header.column.id === 'name' ? 'w-[35%]' : header.column.id === 'size' || header.column.id === 'created_at' || header.column.id === 'mime_type' ? 'w-[15%]' : 'w-[20%]'}>
+                    <TableHead key={header.id} className={
+                      header.column.id === 'thumbnail' ? 'w-[10%]' :
+                      header.column.id === 'name' ? 'w-[30%]' :
+                      header.column.id === 'size' || header.column.id === 'created_at' || header.column.id === 'mime_type' ? 'w-[12%]' :
+                      'w-[15%]'
+                    }>
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
