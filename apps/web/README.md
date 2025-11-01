@@ -1,24 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# File Manager Web App
+
+Next.js frontend for the file management application, featuring authentication and file upload capabilities.
+
+## Features
+
+- 🔐 User authentication with Supabase Auth
+- 📤 File upload to Supabase Storage
+- 📋 File metadata management via FastAPI
+- 🎨 Modern UI with Tailwind CSS and shadcn/ui components
+- ⚡ Server-side rendering with Next.js App Router
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+ installed
+- Supabase project configured
+- FastAPI backend running
+
+### Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+2. Create `.env.local` file:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=https://[your-project-ref].supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+   NEXT_PUBLIC_SUPABASE_BUCKET_NAME=files
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Project Structure
+
+```
+app/
+  ├── auth/           # Supabase auth callbacks
+  ├── login/          # Login page
+  ├── signup/         # Signup page
+  ├── private/        # Protected routes
+  └── error/          # Error pages
+
+components/
+  ├── FileUploader.tsx    # File upload component
+  ├── alert.tsx           # Alert component
+  └── ui/                 # shadcn/ui components
+
+utils/
+  ├── supabase/       # Supabase client setup
+  ├── errors.ts       # Error handling utilities
+  └── ...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key |
+| `NEXT_PUBLIC_SUPABASE_BUCKET_NAME` | Storage bucket name for files |
+| `NEXT_PUBLIC_API_URL` | FastAPI backend URL |
 
 ## Learn More
 

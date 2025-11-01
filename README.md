@@ -1,14 +1,6 @@
-# Turborepo starter
+# File Manager
 
-This Turborepo starter is maintained by the Turborepo core team.
-
-## Using this example
-
-Run the following command:
-
-```sh
-npx create-turbo@latest
-```
+A full-stack file management application built with Turborepo, featuring a Next.js frontend and FastAPI backend.
 
 ## What's inside?
 
@@ -16,13 +8,83 @@ This Turborepo includes the following packages/apps:
 
 ### Apps and Packages
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
+- `web`: Next.js application with Supabase auth and file upload UI
+- `api`: FastAPI backend with SQLModel ORM and PostgreSQL database
+- `docs`: Documentation site (Next.js)
+- `@repo/ui`: React component library shared across applications
 - `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
 - `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+Each package/app is 100% [TypeScript](https://www.typescriptlang.org/) (except the Python backend).
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- Python 3.13+
+- [Supabase](https://supabase.com) account with a PostgreSQL database
+- [uv](https://github.com/astral-sh/uv) Python package manager
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd file-manager
+   ```
+
+2. **Install dependencies**
+   ```bash
+   # Install Node.js dependencies
+   npm install
+   # or
+   yarn install
+   ```
+
+3. **Configure Supabase**
+   - Create a new project on [Supabase](https://supabase.com)
+   - Get your database connection string from Settings > Database
+   - Create a storage bucket (e.g., "files")
+
+4. **Setup API**
+   ```bash
+   cd apps/api
+   cp .env.example .env
+   # Edit .env and add your DATABASE_URL from Supabase
+   uv sync
+   ```
+
+5. **Setup Web App**
+   ```bash
+   cd apps/web
+   # Create a .env.local file with:
+   # NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   # NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_key
+   # NEXT_PUBLIC_SUPABASE_BUCKET_NAME=files
+   # NEXT_PUBLIC_API_URL=http://localhost:8000
+   ```
+
+6. **Run the development servers**
+   ```bash
+   # From the root directory
+   npm run dev
+   # or
+   yarn dev
+   ```
+   
+   This will start:
+   - Frontend on `http://localhost:3000`
+   - API on `http://localhost:8000`
+
+## Features
+
+- ✅ User authentication with Supabase Auth
+- ✅ File upload to Supabase Storage
+- ✅ File metadata CRUD operations via FastAPI
+- ✅ SQLModel ORM with PostgreSQL
+- ✅ Type-safe API with FastAPI
+- ✅ Modern UI with Next.js and Tailwind CSS
 
 ### Utilities
 
