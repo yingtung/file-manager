@@ -1,5 +1,12 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
 import {
   Table,
   TableBody,
@@ -9,7 +16,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File } from 'lucide-react';
+import { ChevronUp, ChevronDown, FileText, Image as ImageIcon, File, Edit, Trash2, ArrowUpDown } from 'lucide-react';
+import { EditInput } from '@/components/EditInput';
 
 interface File {
   id: string;
@@ -34,6 +42,8 @@ interface FileTableProps {
   sortDirection: SortDirection;
   onPageChange: (page: number) => void;
   onSortChange: (field: SortField, direction: SortDirection) => void;
+  onFileUpdate?: (fileId: string, newName: string) => Promise<void>;
+  onFileDelete?: (fileId: string) => Promise<void>;
 }
 
 export function FileTable({
@@ -47,20 +57,48 @@ export function FileTable({
   sortDirection,
   onPageChange,
   onSortChange,
+  onFileUpdate,
+  onFileDelete,
 }: FileTableProps) {
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      // Toggle sort direction if clicking the same field
-      onSortChange(field, sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Set new field with default direction
-      onSortChange(field, 'desc');
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleStartEdit = (file: File) => {
+    setEditingId(file.id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSave = async (fileId: string, newName: string) => {
+    if (!onFileUpdate) {
+      handleCancelEdit();
+      return;
+    }
+
+    try {
+      await onFileUpdate(fileId, newName);
+      setEditingId(null);
+    } catch (error) {
+      console.error('Failed to update file name:', error);
+      throw error;
     }
   };
 
-  const totalPages = Math.ceil(total / pageSize);
-  const startItem = (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, total);
+  const handleDelete = async (fileId: string) => {
+    if (!onFileDelete) return;
+    
+    if (!confirm('確定要刪除這個檔案嗎？')) {
+      return;
+    }
+
+    try {
+      await onFileDelete(fileId);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      alert('刪除失敗，請稍後再試');
+    }
+  };
 
   const formatFileSize = (bytes: number | null): string => {
     if (!bytes) return '-';
@@ -95,31 +133,177 @@ export function FileTable({
     return parts[0] ? parts[0].toUpperCase() : 'UNKNOWN';
   };
 
-  const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => handleSort(field)}
-      className="h-auto p-1 font-semibold hover:bg-gray-100 transition-colors"
-    >
-      <span className="flex items-center gap-2">
-        {children}
-          <span className="text-gray-600">
-            {sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+  // Define columns using TanStack Table
+  const columns = useMemo<ColumnDef<File>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: () => {
+        const isSorted = sortField === 'name';
+        const isAsc = sortDirection === 'asc';
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onSortChange('name', isSorted && isAsc ? 'desc' : 'asc');
+            }}
+            className="h-auto p-1 font-semibold hover:bg-gray-100 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              檔案名稱
+              {isSorted ? (
+                isAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ArrowUpDown className="w-4 h-4" />
+              )}
+            </span>
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const file = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            {getFileIcon(file.mime_type)}
+            {editingId === file.id ? (
+              <EditInput
+                value={file.name}
+                onSave={(newName) => handleSave(file.id, newName)}
+                onCancel={handleCancelEdit}
+              />
+            ) : (
+              <span 
+                className="text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                onClick={() => onFileUpdate && handleStartEdit(file)}
+                title="點擊編輯檔案名稱"
+              >
+                {file.name}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'size',
+      header: () => {
+        const isSorted = sortField === 'size';
+        const isAsc = sortDirection === 'asc';
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onSortChange('size', isSorted && isAsc ? 'desc' : 'asc');
+            }}
+            className="h-auto p-1 font-semibold hover:bg-gray-100 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              檔案大小
+              {isSorted ? (
+                isAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ArrowUpDown className="w-4 h-4" />
+              )}
+            </span>
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        return <span className="text-gray-600">{formatFileSize(row.original.size)}</span>;
+      },
+    },
+    {
+      accessorKey: 'created_at',
+      header: () => {
+        const isSorted = sortField === 'created_at';
+        const isAsc = sortDirection === 'asc';
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onSortChange('created_at', isSorted && isAsc ? 'desc' : 'asc');
+            }}
+            className="h-auto p-1 font-semibold hover:bg-gray-100 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              上傳時間
+              {isSorted ? (
+                isAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ArrowUpDown className="w-4 h-4" />
+              )}
+            </span>
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        return <span className="text-gray-600">{formatDate(row.original.created_at)}</span>;
+      },
+    },
+    {
+      accessorKey: 'mime_type',
+      header: '類型',
+      cell: ({ row }) => {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            {getFileTypeBadge(row.original.mime_type)}
           </span>
-        
-      </span>
-    </Button>
-  );
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      enableHiding: false,
+      cell: ({ row }) => {
+        const file = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditingId(file.id)}
+              disabled={editingId !== null}
+              className="h-8 w-8 p-0 hover:bg-blue-50"
+              title="編輯"
+            >
+              <Edit className="w-4 h-4 text-blue-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(file.id)}
+              disabled={editingId !== null}
+              className="h-8 w-8 p-0 hover:bg-red-50"
+              title="刪除"
+            >
+              <Trash2 className="w-4 h-4 text-red-600" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ], [editingId, sortField, sortDirection, onSortChange, onFileUpdate]);
+
+  const table = useReactTable({
+    data: files,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    
+  });
+
+  const totalPages = Math.ceil(total / pageSize);
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, total);
 
   const TableSkeleton = () => (
     <div className="rounded-lg border border-gray-200 overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
-            <TableHead className="w-[40%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[20%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
-            <TableHead className="w-[20%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[35%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
+            <TableHead className="w-[15%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
             <TableHead className="w-[20%]"><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableHead>
           </TableRow>
         </TableHeader>
@@ -130,6 +314,7 @@ export function FileTable({
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div></TableCell>
               <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div></TableCell>
+              <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div></TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -165,23 +350,36 @@ export function FileTable({
         <div className="rounded-lg border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="w-[40%]">
-                  <SortButton field="name">檔案名稱</SortButton>
-                </TableHead>
-                <TableHead className="w-[20%]">
-                  <SortButton field="size">檔案大小</SortButton>
-                </TableHead>
-                <TableHead className="w-[20%]">
-                  <SortButton field="created_at">上傳時間</SortButton>
-                </TableHead>
-                <TableHead className="w-[20%]">類型</TableHead>
-              </TableRow>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-gray-50">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} className={header.column.id === 'name' ? 'w-[35%]' : header.column.id === 'size' || header.column.id === 'created_at' || header.column.id === 'mime_type' ? 'w-[15%]' : 'w-[20%]'}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
-              {files.length === 0 ? (
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row, index) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={cell.column.id === 'name' ? 'font-medium' : ''}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12">
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <FileText className="w-12 h-12 text-gray-300" />
                       <span className="text-gray-500 font-medium">尚無檔案</span>
@@ -189,24 +387,6 @@ export function FileTable({
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : (
-                files.map((file, index) => (
-                  <TableRow key={file.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-3">
-                        {getFileIcon(file.mime_type)}
-                        <span className="text-gray-900">{file.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-gray-600">{formatFileSize(file.size)}</TableCell>
-                    <TableCell className="text-gray-600">{formatDate(file.created_at)}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {getFileTypeBadge(file.mime_type)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
               )}
             </TableBody>
           </Table>
@@ -267,4 +447,3 @@ export function FileTable({
     </div>
   );
 }
-

@@ -83,6 +83,54 @@ export default function Home() {
     // Refresh file list after upload
     fetchFiles();
   };
+
+  const handleFileUpdate = async (fileId: string, newName: string) => {
+    try {
+      const accessToken = await requireAccessToken();
+      
+      const response = await fetch(`${API_URL}/api/file/${fileId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ name: newName }),
+      });
+
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || `更新失敗 (狀態碼: ${response.status})`);
+      }
+
+      // Refresh file list after update
+      fetchFiles();
+    } catch (err: any) {
+      throw new Error(err.message);
+    }
+  };
+
+  const handleFileDelete = async (fileId: string) => {
+    try {
+      const accessToken = await requireAccessToken();
+      
+      const response = await fetch(`${API_URL}/api/file/${fileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || `刪除失敗 (狀態碼: ${response.status})`);
+      }
+
+      // Refresh file list after delete
+      fetchFiles();
+    } catch (err: any) {
+      throw new Error(err.message);
+    }
+  };
   
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -102,6 +150,8 @@ export default function Home() {
           setSortOrder([direction]);
           setCurrentPage(1);
         }}
+        onFileUpdate={handleFileUpdate}
+        onFileDelete={handleFileDelete}
       />
     </div>
   );
