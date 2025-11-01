@@ -153,7 +153,8 @@ export default function Home() {
       fetchFiles();
     } catch (err: any) {
       throw new Error(err.message);
-    }}
+    }
+  };
   
   return (
     <>
