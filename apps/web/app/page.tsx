@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { requireAccessToken } from "@/utils/auth";
 import { FileUploader } from "@/components/FileUploader";
 import { FileTable } from "@/components/FileTable";
+import { Navbar } from "@/components/Navbar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -133,9 +134,11 @@ export default function Home() {
   };
   
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <FileUploader onFileUploaded={handleFileUploaded} />
-      <FileTable 
+    <>
+      <Navbar />
+      <div className="p-6 max-w-7xl mx-auto">
+        <FileUploader onFileUploaded={handleFileUploaded} />
+        <FileTable 
         files={files}
         loading={loading}
         error={error}
@@ -152,7 +155,8 @@ export default function Home() {
         }}
         onFileUpdate={handleFileUpdate}
         onFileDelete={handleFileDelete}
-      />
-    </div>
+        />
+      </div>
+    </>
   );
 }
