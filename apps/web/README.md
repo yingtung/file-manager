@@ -14,7 +14,7 @@ Next.js frontend for the file management application, featuring authentication a
 
 ### Prerequisites
 
-- Node.js 18+ installed
+- Node.js 22+ installed
 - Supabase project configured
 - FastAPI backend running
 
