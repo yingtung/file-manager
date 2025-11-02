@@ -2,11 +2,11 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
-from routes import file_router
+from routes import login_router, file_router
 from services.supabase import supabase_service
 from settings import settings
 
@@ -35,7 +35,10 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(file_router, prefix="/api")
+api_router = APIRouter()
+api_router.include_router(login_router)
+api_router.include_router(file_router)
+app.include_router(api_router, prefix="/api")
 
 
 @app.get("/")

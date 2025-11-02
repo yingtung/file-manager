@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select, func, delete
 
 from database import get_session
-from dependencies import get_pagination_params, get_current_user_id
+from dependencies import get_current_user, get_pagination_params, get_current_user_id
 from models import (
     DownloadLink,
     File,
@@ -22,7 +22,9 @@ from models import (
 from services.supabase import delete_storage_files, generate_signed_url, get_supabase
 from supabase import Client
 
-router = APIRouter(prefix="/file", tags=["file"])
+router = APIRouter(
+    prefix="/file", tags=["file"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.post("", response_model=FileRead, status_code=status.HTTP_201_CREATED)
